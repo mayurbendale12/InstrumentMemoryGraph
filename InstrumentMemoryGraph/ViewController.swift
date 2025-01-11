@@ -1,18 +1,15 @@
-//
-//  ViewController.swift
-//  InstrumentMemoryGraph
-//
-//  Created by Mayur Bendale on 11/09/24.
-//
-
 import UIKit
+// Below are some tips to avoid taking more memory by the App
 // - Make sure to dequeing tableViewCell instead of creating new cell
 // - Use shadowPath when applying shadow to any view's layer, this will reduce the calculation and informs the CALayer that where to apply the shadow
 // - Make sure to weak or unowned the vc reference
 // - UIImage(named: "") : This caches the image and keeps in the memory so it results in using more memoery if images are large. Instead we can use UIImage(contentOfFile: ) which doesn't cache the image
 
-
 class ViewController: UIViewController {
+    //This won't release the RedViewController instances from memory.
+    // Remove this code to avoid retaining it from memory
+    private var viewControllers = [UIViewController]()
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -27,6 +24,7 @@ class ViewController: UIViewController {
 
     @objc private func didTapButton() {
         let redViewControlller = RedViewController()
+        viewControllers.append(redViewControlller)
         navigationController?.pushViewController(redViewControlller, animated: true)
     }
 }
@@ -40,10 +38,17 @@ class RedViewController: UIViewController {
         customView = CustomView(redController: self)
         view.addSubview(customView!)
     }
+
+    deinit {
+        print("RedViewController deinit")
+        customView = nil
+    }
 }
 
 class CustomView: UIView {
-    private weak var redController: RedViewController?
+    private var redController: RedViewController?
+    //To avoid retain cycle
+//    private weak var redController: RedViewController?
     private let customQueue = DispatchQueue(label: "com.msb.InstrumentMemoryGraph",
                                             qos: .userInitiated,
                                             attributes: [.concurrent])
@@ -57,22 +62,22 @@ class CustomView: UIView {
         self.redController = redController
         super.init(frame: CGRect(x: 0, y: 0, width: 500, height: 500))
         addSubview(imageView)
+        //UIImage(named caches the image so it doesn't increase memory that much
 //        let image = UIImage(named: "nature")
-//        let pngData = image?.pngData()
-//        print(pngData as Any)
+//        imageView.image = image
+
+        //This increase the memory suddenly
         let imagePath = Bundle.main.path(forResource: "nature", ofType: "jpeg") ?? ""
         let image = UIImage(contentsOfFile: imagePath)
         customQueue.async {
-            let pngData = image?.pngData()
-            print(pngData as Any)
+            let imageData = image?.jpegData(compressionQuality: 1)
+            let image = UIImage(data: imageData!)
+            DispatchQueue.main.async {
+                self.imageView.image = image
+            }
         }
-        imageView.image = image
     }
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-    }
-    
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
